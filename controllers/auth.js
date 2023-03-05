@@ -1,6 +1,9 @@
 const { User } = require("../models/users");
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 const { HttpError, ctrlWrapper } = require("../helpers");
+
+const { SECRET_KEY } = process.env;
 
 const register = async (req, res) => {
   const { email, password } = req.body;
@@ -16,6 +19,35 @@ const register = async (req, res) => {
   });
 };
 
+const login = async (req, res) => {
+  const { email, password } = req.body;
+  const userCheck = await User.findOne({ email });
+  if (!userCheck) {
+    throw HttpError(401, "Email or password is wrong");
+  }
+
+  const comparePassword = await bcrypt.compare(password, userCheck.password);
+  if (!comparePassword) {
+    throw HttpError(401, "Email or password is wrong");
+  }
+  const payload = {
+    id: userCheck._id,
+  };
+  const user = {
+    email: userCheck.email,
+    subscription: userCheck.subscription,
+  };
+  const token = jwt.sign(payload, SECRET_KEY, { expiresIn: "23h" });
+  res.json({ token, user });
+};
+
+const getCurrent = async (req, res) => {
+  const { email, subscription } = await req.user;
+  res.json({ email, subscription });
+};
+
 module.exports = {
   register: ctrlWrapper(register),
+  login: ctrlWrapper(login),
+  getCurrent: ctrlWrapper(getCurrent),
 };
